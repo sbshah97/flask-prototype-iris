@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NITK Academic Advisor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>NITK Academic Advisor</h1>
+            <p>Ask questions about NITK BTech and PG curriculum policies</p>
+            <div class="status" id="status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Initializing...</span>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome-message">
+                    <div class="message assistant-message">
+                        <div class="message-content">
+                            <p>👋 Hello! I'm your NITK Academic Advisor AI assistant.</p>
+                            <p>I can help you with questions about:</p>
+                            <ul>
+                                <li>BTech and PG curriculum policies</li>
+                                <li>Academic regulations and procedures</li>
+                                <li>Attendance requirements</li>
+                                <li>Grading systems and policies</li>
+                                <li>Course structures and requirements</li>
+                            </ul>
+                            <p>Try asking: <em>"What are the attendance requirements for BTech students?"</em></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="questionInput" 
+                        placeholder="Ask about NITK policies, attendance, grades, course requirements..."
+                        rows="1"
+                    ></textarea>
+                    <button id="sendButton" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-help">
+                    <span id="inputHelp">Press Enter to send, Shift+Enter for new line</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
