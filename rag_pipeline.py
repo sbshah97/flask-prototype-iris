@@ -1,16 +1,15 @@
 import os
 import logging
-import requests
-from typing import List, Optional
+from typing import Optional
 from dotenv import load_dotenv
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
-from langchain.schema import Document
 
 # Try importing LLMs with fallbacks
 try:
@@ -32,14 +31,7 @@ load_dotenv()
 
 # Configuration
 DATA_DIR = "data"
-PDF_DIR = os.path.join(DATA_DIR, "pdfs")
 INDEX_DIR = os.path.join(DATA_DIR, "faiss_index")
-
-# PDF configurations
-PDFS = {
-    "Btech_Curriculum_2023.pdf": os.getenv("BTECH_PDF_URL", "https://www.nitk.ac.in/document/attachments/8305/Btech_Curriculum_2023.pdf"),
-    "PG_Curriculum_2023.pdf": os.getenv("PG_PDF_URL", "https://www.nitk.ac.in/document/attachments/8306/PG_Curriculum_2023.pdf")
-}
 
 # RAG Configuration
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
@@ -86,129 +78,34 @@ class NITKRAGPipeline:
         self.llm = None
         self.chain = None
         
-    def download_pdfs(self) -> bool:
-        """Download PDFs if they don't exist locally"""
-        os.makedirs(PDF_DIR, exist_ok=True)
-        
-        for filename, url in PDFS.items():
-            filepath = os.path.join(PDF_DIR, filename)
-            
-            if os.path.exists(filepath):
-                logger.info(f"PDF already exists: {filename}")
-                continue
-                
-            try:
-                logger.info(f"Downloading {filename}...")
-                response = requests.get(url, stream=True, timeout=60)
-                response.raise_for_status()
-                
-                with open(filepath, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        
-                logger.info(f"Successfully downloaded {filename}")
-                
-            except Exception as e:
-                logger.error(f"Failed to download {filename}: {str(e)}")
-                return False
-                
-        return True
-    
-    def load_documents(self) -> List[Document]:
-        """Load PDF documents"""
-        documents = []
-        
-        for filename in PDFS.keys():
-            filepath = os.path.join(PDF_DIR, filename)
-            
-            if not os.path.exists(filepath):
-                logger.warning(f"PDF not found: {filepath}")
-                continue
-                
-            try:
-                loader = PyPDFLoader(filepath)
-                docs = loader.load()
-                
-                # Add metadata about source handbook
-                handbook_type = "BTech" if "Btech" in filename else "PG"
-                for doc in docs:
-                    doc.metadata["handbook"] = handbook_type
-                    doc.metadata["source_file"] = filename
-                    
-                documents.extend(docs)
-                logger.info(f"Loaded {len(docs)} pages from {filename}")
-                
-            except Exception as e:
-                logger.error(f"Failed to load {filename}: {str(e)}")
-                
-        return documents
-    
-    def chunk_documents(self, documents: List[Document]) -> List[Document]:
-        """Split documents into chunks"""
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=CHUNK_SIZE,
-            chunk_overlap=CHUNK_OVERLAP,
-            separators=["\n\n", "\n", " ", ""]
-        )
-        
-        chunks = text_splitter.split_documents(documents)
-        logger.info(f"Created {len(chunks)} chunks from documents")
-        return chunks
-    
     def initialize_embeddings(self):
         """Initialize embedding model"""
         if self.embeddings is None:
             logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
             self.embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     
-    def build_vector_store(self, force_rebuild: bool = False) -> bool:
-        """Build or load vector store"""
-        os.makedirs(DATA_DIR, exist_ok=True)
-        
-        self.initialize_embeddings()
-        
-        # Try to load existing index
-        if not force_rebuild and os.path.exists(INDEX_DIR):
-            try:
-                logger.info("Loading existing FAISS index...")
-                self.vectorstore = FAISS.load_local(
-                    INDEX_DIR, 
-                    self.embeddings, 
-                    allow_dangerous_deserialization=True
-                )
-                logger.info(f"Loaded existing index with {self.vectorstore.index.ntotal} vectors")
-                return True
-            except Exception as e:
-                logger.warning(f"Failed to load existing index: {str(e)}, rebuilding...")
-        
-        # Build new index
-        logger.info("Building new FAISS index...")
-        
-        # Download PDFs if needed
-        if not self.download_pdfs():
-            logger.error("Failed to download required PDFs")
+    def load_vector_store(self) -> bool:
+        """Load pre-built FAISS vector store"""
+        if not os.path.exists(INDEX_DIR):
+            logger.error(f"FAISS index not found at {INDEX_DIR}")
+            logger.error("Please run 'python build_index.py' first to create the vector index")
             return False
         
-        # Load and process documents
-        documents = self.load_documents()
-        if not documents:
-            logger.error("No documents loaded")
-            return False
-            
-        chunks = self.chunk_documents(documents)
-        if not chunks:
-            logger.error("No chunks created")
-            return False
-        
-        # Create vector store
         try:
-            self.vectorstore = FAISS.from_documents(chunks, self.embeddings)
-            self.vectorstore.save_local(INDEX_DIR)
-            logger.info(f"Created and saved FAISS index with {self.vectorstore.index.ntotal} vectors")
+            self.initialize_embeddings()
+            logger.info("Loading pre-built FAISS index...")
+            self.vectorstore = FAISS.load_local(
+                INDEX_DIR, 
+                self.embeddings, 
+                allow_dangerous_deserialization=True
+            )
+            vector_count = self.vectorstore.index.ntotal
+            logger.info(f"✅ Successfully loaded FAISS index with {vector_count} vectors")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to create vector store: {str(e)}")
+            logger.error(f"Failed to load FAISS index: {str(e)}")
+            logger.error("The index may be corrupted. Try running 'python build_index.py --force-rebuild'")
             return False
     
     def initialize_llm(self):
@@ -319,17 +216,17 @@ class NITKRAGPipeline:
                 "success": False
             }
     
-    def initialize(self, force_rebuild: bool = False) -> bool:
-        """Initialize the complete RAG pipeline"""
+    def initialize(self) -> bool:
+        """Initialize the RAG pipeline with pre-built index"""
         try:
-            # Build vector store
-            if not self.build_vector_store(force_rebuild):
+            # Load pre-built vector store
+            if not self.load_vector_store():
                 return False
             
             # Build retrieval chain
             self.build_retrieval_chain()
             
-            logger.info("RAG pipeline initialized successfully")
+            logger.info("✅ RAG pipeline initialized successfully")
             return True
             
         except Exception as e:
@@ -346,10 +243,10 @@ def get_pipeline() -> NITKRAGPipeline:
         _pipeline = NITKRAGPipeline()
     return _pipeline
 
-def initialize_pipeline(force_rebuild: bool = False) -> bool:
+def initialize_pipeline() -> bool:
     """Initialize the global pipeline"""
     pipeline = get_pipeline()
-    return pipeline.initialize(force_rebuild)
+    return pipeline.initialize()
 
 def query_pipeline(question: str) -> dict:
     """Query the pipeline with a question"""

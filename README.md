@@ -72,20 +72,39 @@ A Flask-based RAG (Retrieval-Augmented Generation) application that serves as an
    # Edit .env with your API keys
    ```
 
-5. **Run the application**
+5. **Build the RAG index (REQUIRED)**
+   ```bash
+   python build_index.py
+   ```
+   This downloads PDFs and builds the FAISS vector index (takes ~2 minutes)
+
+6. **Run the application**
    ```bash
    python app.py
    ```
 
-6. **Open in browser**
+7. **Open in browser**
    ```
    http://localhost:8000
    ```
 
-### First Time Setup
+### Two-Step Setup Process
 
-1. Visit `/ingest` endpoint to download and process PDFs (or it will happen automatically on first question)
-2. Start asking questions about NITK academic policies!
+**Step 1: Preprocessing (One-time setup)**
+```bash
+python build_index.py [--force-rebuild]
+```
+- Downloads NITK curriculum PDFs
+- Processes documents and creates text chunks  
+- Builds FAISS vector index with 2800+ embeddings
+- Only needs to be run once (unless PDFs are updated)
+
+**Step 2: Start Chat Application**
+```bash
+python app.py
+```
+- Loads pre-built index (fast startup)
+- Ready to answer questions immediately
 
 ## 📋 API Endpoints
 
@@ -95,8 +114,9 @@ A Flask-based RAG (Retrieval-Augmented Generation) application that serves as an
 | `/health` | GET | Health check |
 | `/status` | GET | Detailed system status |
 | `/chat` | POST | Ask questions (JSON: `{"question": "..."}`) |
-| `/ingest` | POST | Force rebuild vector index |
 | `/test` | GET | Test with sample question |
+
+**Note:** The `/ingest` endpoint has been removed. Use `python build_index.py` for preprocessing.
 
 ## 🔧 Configuration
 
@@ -188,6 +208,9 @@ The repository includes automated deployment via GitHub Actions:
 ### API Usage
 
 ```bash
+# First-time setup: Build the index
+python build_index.py
+
 # Ask a question
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
@@ -196,8 +219,8 @@ curl -X POST http://localhost:8000/chat \
 # Check system status
 curl http://localhost:8000/status
 
-# Force reindex documents
-curl -X POST http://localhost:8000/ingest
+# Rebuild index if needed
+python build_index.py --force-rebuild
 ```
 
 ## 🛠️ Tech Stack

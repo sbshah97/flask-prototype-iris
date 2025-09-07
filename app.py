@@ -37,44 +37,6 @@ def health():
         "service": "NITK Academic Advisor"
     })
 
-@app.route("/ingest", methods=["POST"])
-def ingest():
-    """
-    Force rebuild the vector index from PDFs
-    This endpoint downloads PDFs and rebuilds the FAISS index
-    """
-    global _pipeline_initialized
-    
-    try:
-        logger.info("Starting manual ingestion process...")
-        
-        # Force rebuild the pipeline
-        success = initialize_pipeline(force_rebuild=True)
-        
-        if success:
-            _pipeline_initialized = True
-            pipeline = get_pipeline()
-            vector_count = pipeline.vectorstore.index.ntotal if pipeline.vectorstore else 0
-            
-            logger.info(f"Ingestion completed successfully with {vector_count} vectors")
-            return jsonify({
-                "status": "success",
-                "message": "Documents ingested and indexed successfully",
-                "vector_count": vector_count
-            })
-        else:
-            logger.error("Ingestion failed")
-            return jsonify({
-                "status": "error",
-                "message": "Failed to ingest documents"
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"Ingestion error: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": f"Ingestion failed: {str(e)}"
-        }), 500
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -99,12 +61,12 @@ def chat():
         # Initialize pipeline if needed
         if not _pipeline_initialized:
             logger.info("Pipeline not initialized, initializing now...")
-            success = initialize_pipeline(force_rebuild=False)
+            success = initialize_pipeline()
             if success:
                 _pipeline_initialized = True
             else:
                 return jsonify({
-                    "error": "Failed to initialize RAG pipeline. Please try the /ingest endpoint first."
+                    "error": "Failed to initialize RAG pipeline. Please run 'python build_index.py' first to create the vector index."
                 }), 500
         
         # Query the pipeline
@@ -169,12 +131,12 @@ def test_endpoint():
         # Initialize if needed
         global _pipeline_initialized
         if not _pipeline_initialized:
-            success = initialize_pipeline(force_rebuild=False)
+            success = initialize_pipeline()
             if success:
                 _pipeline_initialized = True
             else:
                 return jsonify({
-                    "error": "Pipeline initialization failed"
+                    "error": "Pipeline initialization failed. Please run 'python build_index.py' first."
                 }), 500
         
         # Query with sample question
@@ -204,12 +166,13 @@ def startup_initialization():
     global _pipeline_initialized
     try:
         logger.info("Attempting to initialize pipeline on startup...")
-        success = initialize_pipeline(force_rebuild=False)
+        success = initialize_pipeline()
         if success:
             _pipeline_initialized = True
             logger.info("Pipeline initialized successfully on startup")
         else:
             logger.warning("Pipeline initialization failed on startup - will retry on first request")
+            logger.warning("Make sure to run 'python build_index.py' first to create the vector index")
     except Exception as e:
         logger.warning(f"Startup initialization failed: {str(e)} - will retry on first request")
 
