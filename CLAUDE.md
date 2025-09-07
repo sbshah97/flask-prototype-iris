@@ -121,7 +121,7 @@ Use `/status` endpoint for detailed system diagnostics including vector counts a
 
 2. **Railway Environment Configuration**: Set via Railway CLI:
    ```bash
-   GOOGLE_API_KEY=AIzaSyDkE3yvAHihQqm37chX3YFPhcfvL6b_ccw
+   GOOGLE_API_KEY=<API_KEY>
    LLM_PROVIDER=gemini
    LLM_MODEL=gemini-2.0-flash-exp
    FLASK_ENV=production
