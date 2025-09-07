@@ -56,13 +56,13 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Deploy to Railway
-      uses: railway-tools/gh-action@v1
-      with:
-        railway_token: ${{ secrets.RAILWAY_TOKEN }}
-        service_name: "nitk-advisor"
+      uses: bervProject/railway-deploy@main
       env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
         LLM_MODEL: ${{ secrets.LLM_MODEL }}
         FLASK_ENV: "production"
         DEBUG: "False"
+      with:
+        service: "web"
